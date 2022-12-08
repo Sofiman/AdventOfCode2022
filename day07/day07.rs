@@ -1,4 +1,5 @@
 use std::{fs::File, io::{Result, BufReader, BufRead}};
+use std::collections::HashMap;
 
 fn main() -> Result<()> {
     let f = File::open("input.txt")?;
@@ -27,45 +28,7 @@ enum Command {
 struct Directory {
     name: String,
     files: Vec<(String, usize)>,
-    dirs: Vec<Box<Directory>>
-}
-
-#[derive(Debug, Clone)]
-enum Action {
-    None,
-    PushTopLevel(String),
-    PopRoot,
-    PopTopLevel
-}
-
-fn parse_output(cmd: &Command, buf: &[&str], current_dir: &mut Directory)
-    -> Action {
-    use Command::*;
-    use Action::*;
-    match cmd {
-        ChangeDir(target) => match target.as_str() {
-            "/"  => PopRoot,
-            ".." => PopTopLevel,
-            name => PushTopLevel(name.to_string())
-        },
-        ListDirs => {
-            for line in buf {
-                if line.starts_with("dir") {
-                    current_dir.dirs.push(Box::new(Directory {
-                        name: line[4..].to_string(),
-                        files: vec![],
-                        dirs: vec![]
-                    }));
-                } else {
-                    let (size, name) = line.split_once(" ").unwrap();
-                    let size: usize = size.parse().unwrap();
-                    current_dir.files.push((name.to_string(), size));
-                }
-            }
-            None
-        },
-        Unknown => None
-    }
+    sub_dirs: Vec<String>
 }
 
 fn parse_cmd(line: &str) -> Command {
@@ -82,39 +45,189 @@ fn parse_cmd(line: &str) -> Command {
     }
 }
 
+fn size(dir: &Directory, map: &HashMap<String, Directory>) -> usize {
+    let mut sub_total = 0;
+    for (name, size) in &dir.files {
+        sub_total += size;
+    }
+    for subdir in &dir.sub_dirs {
+        sub_total += size(&map[subdir], map);
+    }
+    sub_total
+}
+
 fn part1(lines: &[String]) -> Result<String> {
-    let root = Directory {
-        name: "/".to_string(), files: vec![], dirs: vec![]
-    };
+    use Command::*;
+    let mut fs: HashMap<String, Directory> = HashMap::new();
+    let mut path: String = "/".to_string();
+    fs.insert(path.clone(), Directory {
+        name: "/".to_string(), files: vec![], sub_dirs: vec![]
+    });
+
     let mut current_cmd = Command::Unknown;
-    let mut path: Vec<Box<Directory>> = vec![Box::new(root)];
-    let mut output_buf = vec![];
-
+    let mut output_buf: Vec<&str> = vec![];
     for line in lines {
-        let last = path.len() - 1;
         if line.starts_with("$ ") {
-            use Action::*;
-            match parse_output(&current_cmd, &output_buf, &mut path[last]) {
-                PopRoot => path.truncate(1),
-                PopTopLevel => { path.pop(); },
-                PushTopLevel(target) => {
-                    let to_add = path[last].dirs.iter()
-                        .find(|x| *x.name == target).unwrap();
-                    path.push(to_add.clone());
+            match current_cmd {
+                ChangeDir(target) => match target.as_str() {
+                    "/"  => path = "/".to_string(),
+                    ".." => {
+                        if let Some((parent, _)) = path.rsplit_once("/") {
+                            path = parent.to_string();
+                        }
+                    },
+                    name => {
+                        path += "/";
+                        path += name;
+                    },
                 },
-                None => ()
-            }
+                ListDirs => {
+                    for line in &output_buf {
+                        if line.starts_with("dir") {
+                            let new_path = path.clone() + "/" + &line[4..];
+                            if let Some(dir) = fs.get_mut(&path) {
+                                dir.sub_dirs.push(new_path.clone());
+                            }
+                            fs.insert(new_path, Directory {
+                                name: line[4..].to_string(),
+                                files: vec![], sub_dirs: vec![]
+                            });
+                        } else {
+                            let (size, name) = line.split_once(" ").unwrap();
+                            let size: usize = size.parse().unwrap();
+                            if let Some(dir) = fs.get_mut(&path) {
+                                dir.files.push((name.to_string(), size));
+                            }
+                        }
+                    }
+                },
+                Unknown => ()
+            };
             output_buf.clear();
-
             current_cmd = parse_cmd(&line[2..]);
         } else if !matches!(current_cmd, Command::Unknown) {
             output_buf.push(line);
         }
     }
+    if matches!(current_cmd, Command::ListDirs) {
+        for line in &output_buf {
+            if line.starts_with("dir") {
+                let new_path = path.clone() + "/" + &line[4..];
+                if let Some(dir) = fs.get_mut(&path) {
+                    dir.sub_dirs.push(new_path.clone());
+                }
+                fs.insert(new_path, Directory {
+                    name: line[4..].to_string(),
+                    files: vec![], sub_dirs: vec![]
+                });
+            } else {
+                let (size, name) = line.split_once(" ").unwrap();
+                let size: usize = size.parse().unwrap();
+                if let Some(dir) = fs.get_mut(&path) {
+                    dir.files.push((name.to_string(), size));
+                }
+            }
+        }
+    }
 
-    Ok(format!("test"))
+    let mut total = 0;
+    for (key, val) in &fs {
+        let sub_total = size(val, &fs);
+        if sub_total < 100000 {
+            total += sub_total;
+        }
+    }
+
+    Ok(format!("{}", total))
 }
 
 fn part2(lines: &[String]) -> Result<String> {
-    todo!("Part 2")
+    use Command::*;
+    let mut fs: HashMap<String, Directory> = HashMap::new();
+    let mut path: String = "/".to_string();
+    fs.insert(path.clone(), Directory {
+        name: "/".to_string(), files: vec![], sub_dirs: vec![]
+    });
+
+    let mut current_cmd = Command::Unknown;
+    let mut output_buf: Vec<&str> = vec![];
+    for line in lines {
+        if line.starts_with("$ ") {
+            match current_cmd {
+                ChangeDir(target) => match target.as_str() {
+                    "/"  => path = "/".to_string(),
+                    ".." => {
+                        if let Some((parent, _)) = path.rsplit_once("/") {
+                            path = parent.to_string();
+                        }
+                    },
+                    name => {
+                        path += "/";
+                        path += name;
+                    },
+                },
+                ListDirs => {
+                    for line in &output_buf {
+                        if line.starts_with("dir") {
+                            let new_path = path.clone() + "/" + &line[4..];
+                            if let Some(dir) = fs.get_mut(&path) {
+                                dir.sub_dirs.push(new_path.clone());
+                            }
+                            fs.insert(new_path, Directory {
+                                name: line[4..].to_string(),
+                                files: vec![], sub_dirs: vec![]
+                            });
+                        } else {
+                            let (size, name) = line.split_once(" ").unwrap();
+                            let size: usize = size.parse().unwrap();
+                            if let Some(dir) = fs.get_mut(&path) {
+                                dir.files.push((name.to_string(), size));
+                            }
+                        }
+                    }
+                },
+                Unknown => ()
+            };
+            output_buf.clear();
+            current_cmd = parse_cmd(&line[2..]);
+        } else if !matches!(current_cmd, Command::Unknown) {
+            output_buf.push(line);
+        }
+    }
+    if matches!(current_cmd, Command::ListDirs) {
+        for line in &output_buf {
+            if line.starts_with("dir") {
+                let new_path = path.clone() + "/" + &line[4..];
+                if let Some(dir) = fs.get_mut(&path) {
+                    dir.sub_dirs.push(new_path.clone());
+                }
+                fs.insert(new_path, Directory {
+                    name: line[4..].to_string(),
+                    files: vec![], sub_dirs: vec![]
+                });
+            } else {
+                let (size, name) = line.split_once(" ").unwrap();
+                let size: usize = size.parse().unwrap();
+                if let Some(dir) = fs.get_mut(&path) {
+                    dir.files.push((name.to_string(), size));
+                }
+            }
+        }
+    }
+
+    let mut free = 70000000 - size(&fs["/"], &fs);
+    if free >= 30000000 {
+        return Ok(format!("free: {}", free))
+    }
+    free = 30000000 - free;
+    println!("free space: {}", free);
+    let mut min = 70000000;
+    for (key, val) in &fs {
+        let sub_total = size(val, &fs);
+        if sub_total >= free && sub_total < min {
+            min = sub_total;
+        }
+    }
+
+    Ok(format!("{}", min))
 }
