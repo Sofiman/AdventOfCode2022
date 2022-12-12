@@ -1,7 +1,7 @@
 use std::{fs::File, io::{Result, BufReader, BufRead}};
 
 fn main() -> Result<()> {
-    let f = File::open("e.txt")?;
+    let f = File::open("input.txt")?;
     let lines: Vec<String> = BufReader::new(f).lines().flatten().collect();
 
     println!("Result for Part1:");
@@ -100,49 +100,55 @@ fn part2(lines: &[String]) -> Result<String> {
     }
     let mut max_score = 0;
 
-    for i in 0..lines.len() {
-        for j in 0..width {
+    for i in 1..(lines.len() - 1) {
+        for j in 1..(width - 1) {
             let height = grid[i * width + j];
-            let mut k = j;
 
-            k = i;
+            let mut k = i;
             while k > 0 && grid[(k - 1) * width + j] < height {
                 k -= 1;
             }
-            if k != 0 && grid[(k - 1) * width + j] == height {
-                k -= 1;
+            if k != 0 {
+                 k -= 1;
             }
-            let top = i - k + 1;
+            let top = i - k;
 
             k = j;
             while k > 0 && grid[i * width + k - 1] < height {
                 k -= 1;
             }
-            if k != 0 && grid[i * width + k - 1] == height {
-                k -= 1;
+            if k != 0 {
+                 k -= 1;
             }
-            let left = j - k + 1;
+            let left = j - k;
 
             k = j;
-            while k < width && grid[i * width + k] < height {
+            while k < width - 1 && grid[i * width + k + 1] < height {
                 k += 1;
             }
-            if k != width && grid[i * width + k] == height {
-                k += 1;
+            if k != width - 1 {
+                 k += 1;
             }
             let right = k - j;
 
             k = i;
-            while k < lines.len() && grid[k * width + j] < height {
+            while k < lines.len() - 1 && grid[(k + 1) * width + j] < height {
                 k += 1;
             }
-            if k != lines.len() && grid[k * width + j] == height {
-                k += 1;
+            if k != lines.len() - 1 {
+                 k += 1;
             }
             let bottom = k - i;
+
+            let score = top * left * bottom * right;
+            if score > max_score {
+                max_score = score;
+            }
+            /*
             println!("grid[{}, {}]: {} => {} * {} * {} * {} = {}", i, j,
-                     height, top, left, right,
-                     bottom, top * left * right * bottom);
+                     height, top, left, bottom, right,
+                     top * left * bottom * right);
+            */
         }
     }
 
