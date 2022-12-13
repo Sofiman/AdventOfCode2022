@@ -25,6 +25,7 @@ struct Monkey {
     op: Box<dyn Fn(usize) -> usize>,
     /// Next monkey to throw to according to the worry level of the current item
     next: Box<dyn Fn(usize) -> usize>,
+    divisible_target: usize,
     /// Total number of inspected items
     inspected: usize
 }
@@ -61,7 +62,7 @@ fn understand_monkey(desc: &[&str]) -> Monkey {
         }
     });
 
-    Monkey { id, items, op, next, inspected: 0 }
+    Monkey { id, items, op, next, divisible_target, inspected: 0 }
 }
 
 fn part1(lines: &[String]) -> Result<String> {
@@ -108,5 +109,48 @@ fn part1(lines: &[String]) -> Result<String> {
 }
 
 fn part2(lines: &[String]) -> Result<String> {
-    todo!("Part 2")
+    let mut monkeys = vec![];
+    let mut state = vec![];
+    let mut m = 1;
+    for line in lines.iter() {
+        if line.trim().is_empty() {
+            let monkey = understand_monkey(&state);
+            state.clear();
+            m *= monkey.divisible_target;
+            monkeys.push(monkey);
+        } else {
+            state.push(line);
+        }
+    }
+    let monkey = understand_monkey(&state);
+    m *= monkey.divisible_target;
+    monkeys.push(monkey);
+
+    for round in 0..10000 {
+        for i in 0..monkeys.len() {
+            let mut monkey = &mut monkeys[i];
+            let mut to_add = vec![];
+            for item in monkey.items.drain(..) {
+                let item = (monkey.op)(item) % m;
+                let next = (monkey.next)(item);
+                monkey.inspected += 1;
+                to_add.push((next, item));
+            }
+            for (monkey, item) in to_add {
+                monkeys[monkey].items.push(item);
+            }
+        }
+    }
+
+    let mut max = 0;
+    let mut penultimate = 0;
+    for monkey in monkeys.iter() {
+        println!("Monkey {} inspected items {} times.", monkey.id, monkey.inspected);
+        if monkey.inspected > max {
+            penultimate = max;
+            max = monkey.inspected;
+        }
+    }
+
+    Ok(format!("total: {}", max * penultimate))
 }
