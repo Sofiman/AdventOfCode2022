@@ -136,5 +136,44 @@ fn part1(lines: &[String]) -> Result<String> {
 }
 
 fn part2(lines: &[String]) -> Result<String> {
-    todo!("Part 2")
+    let width = lines[0].len();
+    let mut height_map = vec![0; lines.len() * width];
+    let mut end = (0, 0);
+
+    for (i, line) in lines.iter().enumerate() {
+        for (j, h) in line.chars().enumerate() {
+            match h {
+                'E' => {
+                    end = (j, i);
+                    height_map[i * width + j] = 25; // z
+                },
+                'S' => height_map[i * width + j] = 0, // a
+                'a'..='z' => height_map[i * width + j] = h as u32 - 'a' as u32,
+                _ => unreachable!("Unsupported height")
+            }
+        }
+    }
+
+    let mut min = height_map.len();
+    for (i, &height) in height_map.iter().enumerate() {
+        if height == 0 {
+            let marks = shortest_path(&height_map[..], width, i);
+
+            if let Some(parent) = marks[end.0 + end.1 * width] {
+                let mut dst = parent;
+                let mut length = 0;
+                while dst != height_map.len() {
+                    length += 1;
+                    if let Some(parent) = marks[dst] {
+                        dst = parent;
+                    }
+                }
+                if length < min {
+                    min = length;
+                }
+            }
+        }
+    }
+
+    Ok(format!("min length = {}", min))
 }
