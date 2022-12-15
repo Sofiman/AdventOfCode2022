@@ -1,7 +1,7 @@
 use std::{fs::File, io::{Result, BufReader, BufRead}};
 
 fn main() -> Result<()> {
-    let f = File::open("e.txt")?;
+    let f = File::open("input.txt")?;
     let lines: Vec<String> = BufReader::new(f).lines().flatten().collect();
 
     println!("Result for Part1:");
@@ -16,7 +16,7 @@ fn main() -> Result<()> {
     Ok(())
 }
 
-#[derive(Debug, Clone, Copy)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
 enum Unit {
     Void,
     Wall,
@@ -59,11 +59,39 @@ fn draw_line(line: &str, map: &mut [Unit], mid: usize, width: usize) {
     }
 }
 
+fn drop_sand(map: &mut [Unit], width: usize, height: usize) -> bool {
+    let (mut x, mut y) = (25, 0);
+    while y < height - 1 {
+        let below = map[(y + 1) * width + x];
+        if below != Unit::Void {
+            if x > 0 && map[(y + 1) * width + x - 1] == Unit::Void {
+                x -= 1;
+            } else if x < width - 1 && map[(y + 1) * width + x + 1] == Unit::Void {
+                x += 1;
+            } else {
+                break;
+            }
+        } else {
+            y += 1;
+        }
+    }
+    if y != height - 1 {
+        map[y * width + x] = Unit::Sand;
+        return false;
+    }
+    true
+}
+
 fn part1(lines: &[String]) -> Result<String> {
-    let height = 11;
+    let height = 180;
     let mut map = vec![Unit::Void; 50 * height];
     for line in lines {
         draw_line(line, &mut map, 425, 50);
+    }
+
+    let mut i = 0;
+    while !drop_sand(&mut map, 50, height) {
+        i += 1;
     }
 
     for i in 0..height {
@@ -76,7 +104,8 @@ fn part1(lines: &[String]) -> Result<String> {
         }
         println!();
     }
-    todo!("Part 1")
+
+    Ok(format!("{}", i))
 }
 
 fn part2(lines: &[String]) -> Result<String> {
