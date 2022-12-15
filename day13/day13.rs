@@ -16,6 +16,7 @@ fn main() -> Result<()> {
     Ok(())
 }
 
+#[derive(Debug, Clone)]
 enum Packet {
     Number(usize),
     List(Vec<Packet>)
@@ -41,7 +42,7 @@ impl std::fmt::Display for Packet {
     }
 }
 
-fn parse_packet(line: &[char], mut i: usize, mut end: usize) -> (Option<Packet>, usize) {
+fn parse_packet(line: &[char], i: usize, end: usize) -> (Option<Packet>, usize) {
     use Packet::*;
     if line[i] == '[' {
         let mut v = vec![];
@@ -72,7 +73,7 @@ fn parse_packet(line: &[char], mut i: usize, mut end: usize) -> (Option<Packet>,
     }
 }
 
-fn compare(left: Packet, right: Packet) -> Ordering {
+fn compare(left: &Packet, right: &Packet) -> Ordering {
     use Packet::*;
     match (left, right) {
         (Number(x), Number(y)) => x.cmp(&y),
@@ -87,8 +88,8 @@ fn compare(left: Packet, right: Packet) -> Ordering {
             }
             return la.cmp(&lb);
         },
-        (Number(x), List(a)) => compare(List(vec![Number(x)]), List(a)),
-        (List(a), Number(x)) => compare(List(a), List(vec![Number(x)])),
+        (Number(_), List(_)) => compare(&List(vec![left.clone()]), right),
+        (List(_), Number(_)) => compare(left, &List(vec![right.clone()])),
     }
 }
 
@@ -102,7 +103,7 @@ fn part1(lines: &[String]) -> Result<String> {
             let (left, _) = parse_packet(&left_chars, 0, left_chars.len());
             let right_chars: Vec<char> = buf[1].chars().collect();
             let (right, _) = parse_packet(&right_chars, 0, right_chars.len());
-            if compare(left.unwrap(), right.unwrap()) != Ordering::Greater { // in order
+            if compare(&left.unwrap(), &right.unwrap()) != Ordering::Greater { // in order
                 println!("=> {} is in \x1b[32mthe right\x1b[0m order", i);
                 sum += i;
             } else {
@@ -120,7 +121,7 @@ fn part1(lines: &[String]) -> Result<String> {
         let (left, _) = parse_packet(&left_chars, 0, left_chars.len());
         let right_chars: Vec<char> = buf[1].chars().collect();
         let (right, _) = parse_packet(&right_chars, 0, right_chars.len());
-        if compare(left.unwrap(), right.unwrap()) != Ordering::Greater { // in order
+        if compare(&left.unwrap(), &right.unwrap()) != Ordering::Greater { // in order
             println!("=> {} is in \x1b[32mthe right\x1b[0m order", i);
             sum += i;
         } else {
@@ -132,5 +133,41 @@ fn part1(lines: &[String]) -> Result<String> {
 }
 
 fn part2(lines: &[String]) -> Result<String> {
-    todo!("Part 2")
+    use Packet::*;
+    let mut all: Vec<Packet> = vec![
+        List(vec![List(vec![Number(2)])]),
+        List(vec![List(vec![Number(6)])])
+    ];
+    for line in lines {
+        if !line.trim().is_empty() {
+            let chars: Vec<char> = line.chars().collect();
+            let (packet, _) = parse_packet(&chars, 0, chars.len());
+            all.push(packet.unwrap());
+        }
+    }
+    all.sort_by(|a, b| compare(a, b));
+
+    let mut found = None;
+    for (i, p) in all.iter().enumerate() {
+        if let List(top) = p {
+            if top.len() == 1 {
+                if let List(down) = &top[0] {
+                    if down.len() == 1 {
+                        if let Number(x) = down[0] {
+                            match x {
+                                2 => found = Some(i + 1),
+                                6 => {
+                                    found = found.map(|x| x * (i + 1));
+                                    break;
+                                },
+                                _ => ()
+                            }
+                        }
+                    }
+                }
+            }
+        }
+    }
+
+    Ok(format!("key: {:?}", found))
 }
