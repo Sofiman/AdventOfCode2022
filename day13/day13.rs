@@ -41,31 +41,34 @@ impl std::fmt::Display for Packet {
     }
 }
 
-fn parse_packet(line: &[char], mut i: usize, end: usize) -> Packet {
+fn parse_packet(line: &[char], mut i: usize, mut end: usize) -> (Option<Packet>, usize) {
     use Packet::*;
-    if i == end {
-        panic!("err")
-    }
     if line[i] == '[' {
-        i += 1;
         let mut v = vec![];
-        let mut j = i;
-        while j < end && line[j] != ']' {
-            if line[j] == ',' {
-                v.push(parse_packet(line, i, j));
-                i = j + 1;
+        let mut j = i + 1;
+        while j < end {
+            let (e, right) = parse_packet(line, j, end);
+            if let Some(e) = e {
+                v.push(e);
             }
-            j += 1;
+            j = right + 1;
+            if line[right] == ']' {
+                break;
+            }
         }
-        if i != j {
-            v.push(parse_packet(line, i, j));
-        }
-        List(v)
+        (Some(List(v)), j)
     }
     else {
-        let l: String = line[i..end].iter().collect();
+        let mut right = i;
+        while right < end && line[right] != ',' && line[right] != ']' {
+            right += 1;
+        }
+        if right - i < 1 {
+            return (None, right)
+        }
+        let l: String = line[i..right].iter().collect();
         let x: usize = l.parse().unwrap();
-        Number(x)
+        (Some(Number(x)), right)
     }
 }
 
@@ -96,17 +99,16 @@ fn part1(lines: &[String]) -> Result<String> {
     for line in lines {
         if line.trim().is_empty() {
             let left_chars: Vec<char> = buf[0].chars().collect();
-            let left = parse_packet(&left_chars, 0, left_chars.len());
+            let (left, _) = parse_packet(&left_chars, 0, left_chars.len());
             let right_chars: Vec<char> = buf[1].chars().collect();
-            let right = parse_packet(&right_chars, 0, right_chars.len());
-            println!("a = {}", left);
-            println!("b = {}", right);
-            if compare(left, right) != Ordering::Less { // in order
+            let (right, _) = parse_packet(&right_chars, 0, right_chars.len());
+            if compare(left.unwrap(), right.unwrap()) != Ordering::Greater { // in order
                 println!("=> {} is in \x1b[32mthe right\x1b[0m order", i);
                 sum += i;
             } else {
                 println!("=> {} is \x1b[31mnot in the right\x1b[0m order", i);
             }
+            println!();
             buf.clear();
             i += 1;
         } else {
@@ -114,18 +116,16 @@ fn part1(lines: &[String]) -> Result<String> {
         }
     }
     if buf.len() != 0 {
-            let left_chars: Vec<char> = buf[0].chars().collect();
-            let left = parse_packet(&left_chars, 0, left_chars.len());
-            let right_chars: Vec<char> = buf[1].chars().collect();
-            let right = parse_packet(&right_chars, 0, right_chars.len());
-            println!("a = {}", left);
-            println!("b = {}", right);
-            if compare(left, right) != Ordering::Less { // in order
-                println!("=> {} is in \x1b[32mthe right\x1b[0m order", i);
-                sum += i;
-            } else {
-                println!("=> {} is \x1b[31mnot in the right\x1b[0m order", i);
-            }
+        let left_chars: Vec<char> = buf[0].chars().collect();
+        let (left, _) = parse_packet(&left_chars, 0, left_chars.len());
+        let right_chars: Vec<char> = buf[1].chars().collect();
+        let (right, _) = parse_packet(&right_chars, 0, right_chars.len());
+        if compare(left.unwrap(), right.unwrap()) != Ordering::Greater { // in order
+            println!("=> {} is in \x1b[32mthe right\x1b[0m order", i);
+            sum += i;
+        } else {
+            println!("=> {} is \x1b[31mnot in the right\x1b[0m order", i);
+        }
     }
 
     Ok(format!("sum = {}", sum))
