@@ -23,12 +23,16 @@ enum Unit {
     Sand
 }
 
-fn draw_line(line: &str, map: &mut [Unit], mid: usize, width: usize) {
+fn draw_line(line: &str, map: &mut [Unit], mid: usize, width: usize,
+             max_y: &mut usize) {
     let mut prev = None;
     for point in line.split(" -> ") {
         let (x, y) = point.split_once(",").unwrap();
         let x: usize = x.parse().unwrap();
         let y: usize = y.parse().unwrap();
+        if y > *max_y {
+            *max_y = y;
+        }
         if let Some((from_x, from_y)) = prev {
             if from_x == x {
                 // vertical
@@ -59,7 +63,8 @@ fn draw_line(line: &str, map: &mut [Unit], mid: usize, width: usize) {
     }
 }
 
-fn drop_sand(map: &mut [Unit], width: usize, height: usize) -> bool {
+fn drop_sand(map: &mut [Unit], width: usize, height: usize)
+    -> Option<(usize, usize)> {
     let (mut x, mut y) = (width / 2, 0);
     while y < height - 1 {
         let idx = (y + 1) * width + x;
@@ -76,21 +81,22 @@ fn drop_sand(map: &mut [Unit], width: usize, height: usize) -> bool {
     }
     if y != height - 1 {
         map[y * width + x] = Unit::Sand;
-        return true;
+        return Some((x, y));
     }
-    false
+    None
 }
 
 fn part1(lines: &[String]) -> Result<String> {
     let width = 100;
     let height = 170;
     let mut map = vec![Unit::Void; width * height];
+    let mut max_y = 0;
     for line in lines {
-        draw_line(line, &mut map, 500 - (width / 2), width);
+        draw_line(line, &mut map, 500 - (width / 2), width, &mut max_y);
     }
 
     let mut i: usize = 0;
-    while drop_sand(&mut map, width, height) {
+    while matches!(drop_sand(&mut map, width, height), Some(_)) {
         i += 1;
     }
 
@@ -109,5 +115,38 @@ fn part1(lines: &[String]) -> Result<String> {
 }
 
 fn part2(lines: &[String]) -> Result<String> {
-    todo!("Part 2")
+    let width = 350;
+    let height = 170;
+    let mut map = vec![Unit::Void; width * height];
+    let mut max_y = 0;
+    for line in lines {
+        draw_line(line, &mut map, 500 - (width / 2), width, &mut max_y);
+    }
+    max_y += 2;
+
+    for i in 0..width {
+        map[max_y * width + i] = Unit::Rock;
+    }
+
+    let mut i: usize = 0;
+    loop {
+        let (x, y) = drop_sand(&mut map, width, height).unwrap();
+        i += 1;
+        if x == width / 2 && y == 0 {
+            break;
+        }
+    }
+
+    for i in 0..height {
+        for j in 0..width {
+            match map[i * width + j] {
+                Unit::Sand => print!("O"),
+                Unit::Rock => print!("#"),
+                Unit::Void => print!("."),
+            }
+        }
+        println!();
+    }
+
+    Ok(format!("{}", i))
 }
