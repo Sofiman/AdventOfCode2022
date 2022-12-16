@@ -19,7 +19,7 @@ fn main() -> Result<()> {
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 enum Unit {
     Void,
-    Wall,
+    Rock,
     Sand
 }
 
@@ -34,22 +34,22 @@ fn draw_line(line: &str, map: &mut [Unit], mid: usize, width: usize) {
                 // vertical
                 if from_y > y {
                     for i in 0..=(from_y - y) {
-                        map[(y + i) * width + x - mid] = Unit::Wall;
+                        map[(y + i) * width + x - mid] = Unit::Rock;
                     }
                 } else {
                     for i in 0..=(y - from_y) {
-                        map[(from_y + i) * width + x - mid] = Unit::Wall;
+                        map[(from_y + i) * width + x - mid] = Unit::Rock;
                     }
                 }
             } else if from_y == y {
                 // horizontal
                 if from_x > x {
                     for i in 0..=(from_x - x) {
-                        map[y * width + x + i - mid] = Unit::Wall;
+                        map[y * width + x + i - mid] = Unit::Rock;
                     }
                 } else {
                     for i in 0..=(x - from_x) {
-                        map[y * width + from_x + i - mid] = Unit::Wall;
+                        map[y * width + from_x + i - mid] = Unit::Rock;
                     }
                 }
             }
@@ -60,45 +60,45 @@ fn draw_line(line: &str, map: &mut [Unit], mid: usize, width: usize) {
 }
 
 fn drop_sand(map: &mut [Unit], width: usize, height: usize) -> bool {
-    let (mut x, mut y) = (25, 0);
+    let (mut x, mut y) = (width / 2, 0);
     while y < height - 1 {
-        let below = map[(y + 1) * width + x];
-        if below != Unit::Void {
-            if x > 0 && map[(y + 1) * width + x - 1] == Unit::Void {
+        let idx = (y + 1) * width + x;
+        if map[idx] != Unit::Void {
+            if x > 0 && map[idx - 1] == Unit::Void {
                 x -= 1;
-            } else if x < width - 1 && map[(y + 1) * width + x + 1] == Unit::Void {
+            } else if x < width - 1 && map[idx + 1] == Unit::Void {
                 x += 1;
             } else {
                 break;
             }
-        } else {
-            y += 1;
         }
+        y += 1;
     }
     if y != height - 1 {
         map[y * width + x] = Unit::Sand;
-        return false;
+        return true;
     }
-    true
+    false
 }
 
 fn part1(lines: &[String]) -> Result<String> {
-    let height = 180;
-    let mut map = vec![Unit::Void; 50 * height];
+    let width = 100;
+    let height = 170;
+    let mut map = vec![Unit::Void; width * height];
     for line in lines {
-        draw_line(line, &mut map, 425, 50);
+        draw_line(line, &mut map, 500 - (width / 2), width);
     }
 
-    let mut i = 0;
-    while !drop_sand(&mut map, 50, height) {
+    let mut i: usize = 0;
+    while drop_sand(&mut map, width, height) {
         i += 1;
     }
 
     for i in 0..height {
-        for j in 0..50 {
-            match map[i * 50 + j] {
+        for j in 0..width {
+            match map[i * width + j] {
                 Unit::Sand => print!("O"),
-                Unit::Wall => print!("#"),
+                Unit::Rock => print!("#"),
                 Unit::Void => print!("."),
             }
         }
